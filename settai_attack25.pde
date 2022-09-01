@@ -5,21 +5,22 @@ AudioPlayer se;
 
 int c_width = 0, c_height = 0; // セルの幅と高さ
 int c_stroke = 10; // セルの線の太さ
-int s_diam = 0; // 石の直径
-int s_stroke = 4; // 石の線の太さ
 
-final int MY_STATUS = 1; // 自分の石を表すステータス
-final int ENEMY_STATUS = -1; // 相手の石を表すステータス
+final int MY_STATUS = 1; // 自分のマスを表すステータス
+final int ENEMY_STATUS1 = -1; // 相手のマスを表すステータス
+final int ENEMY_STATUS2 = -2;
+final int ENEMY_STATUS3 = -3;
 
-final int MAX_BOARD_NUM = 10; // 盤面バリエーションの最大数
+final int MAX_BOARD_NUM = 1; // 盤面バリエーションの最大数
 
-int[][] cells = new int[8][8]; // 盤面の石の状態を格納する配列
-int solve_x = 0; // 次に打つ石のx座標
-int solve_y = 0; // 次に打つ石のy座標
+String[] fontList;//String型のArrayListを用意
+PFont font;
 
-ArrayList<Stone> stones = new ArrayList<Stone>(); // 石を格納するArrayList
+int[][] cells = new int[5][5]; // 盤面のマスの状態を格納する配列
+int solve_x = 3; // 次に打つマスのx座標
+int solve_y = 4; // 次に打つマスのy座標
 
-// 石をひっくり返すときのアニメーション制御用変数
+// マスをひっくり返すときのアニメーション制御用変数
 boolean isFlipped = false;
 ArrayList targets;
 int count = 0;
@@ -27,7 +28,7 @@ int count = 0;
 // 次の盤面に遷移するときの制御用変数
 boolean isFinished = false;
 int finished_time = 0;
-int current_board = 10;
+int current_board = 1;
 
 void setup()
 {
@@ -37,20 +38,25 @@ void setup()
   se = minim.loadFile("se.wav");
   delay(500);
   se.play();
+  
+  fontList= PFont.list();//PFontに登録されているフォントを代入
+  printArray(fontList);//出力
+  font = createFont(fontList[2], 120);
 
   frameRate(10);
   //fullScreen(P3D);
   size(1920, 1200, P3D);
   calcSize();
-  init();  
+  //init();  
 }
 
 void draw()
 {
   if (isFlipped == true) {
-    animatedStones();
+    animatedCells();
   }
 
+  /*
   if (isFinished == true) {
     // 3秒経ったら次の盤面へ
     if (millis() - finished_time > 3000) {
@@ -60,12 +66,10 @@ void draw()
       init();
     }
   }
+  */
 
   dispBoard();
 
-  for (Stone s : stones) {
-    dispStone(s);
-  }
 }
 
 void load(int num)
@@ -88,78 +92,72 @@ void load(int num)
 
 void init()
 {
-  // 初期表示
-  stones.clear();
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      if (cells[j][i] == MY_STATUS) {
-        stones.add(new Stone(i, j, MY_STATUS, 255));
-      } else if (cells[j][i] == ENEMY_STATUS) {
-        stones.add(new Stone(i, j, ENEMY_STATUS, 255));
-      }
-    }
-  }
-  //stones.add(new Stone(solve_x, solve_y, MY_STATUS, 100)); // 正解は半透明で描画
   isFlipped = false;
 }
 
 void calcSize()
 {
- c_height = (int)(height / 2 * 0.22); // 最後の係数でマス目のサイズを調整、0.2～0.25の間で指定。0.25で画面高さにぴったり。
- c_width = c_height;
- c_stroke = (int)(width * 0.004);
- s_diam = (int)(c_height * 0.85); // 石の大きさはマス目に対して85%とする。
- s_stroke = (int)(width * 0.002);
-
- println("c_stroke: " + c_stroke + " | s_stroke: " + s_stroke);
+ c_height = int(height / 5);
+ c_width = int(c_height*1.3);
+ c_stroke = int(width * 0.004);
 }
 
 void dispBoard()
 {
   // 背景の描画
-  color background_color = color(211, 211, 211);
+  color background_color = color(50, 50, 50);
   background(background_color);
 
   // マス目の描画
-  color cell_color = color(34, 139, 34);
-  fill(cell_color);
-  strokeWeight(c_stroke);
-  stroke(0);
-  for (int i = -4; i < 4; i++) {
-    for (int j = -4; j < 4; j++) {
-      int x = (int)(width / 2) + (c_width * i);
-      int y = (int)(height / 2) + (c_height * j);
-      rect(x, y, c_width, c_height);
+  int cell_count = 1;
+  for (int i = -2; i <= 2; i++) {
+    for (int j = -2; j <= 2; j++) {
+      int x = int((width / 2) + (c_width * j) - (c_width / 2));
+      int y = int((height / 2) + (c_height * i) - (c_height / 2));
+
+      color cell_color = getColor(cells[i+2][j+2]);
+      fill(cell_color);
+      strokeWeight(c_stroke);
+      stroke(0);
+
+      pushMatrix();
+      
+      translate(x, y, 0);
+      rect(0, 0, c_width, c_height);
+
+      fill(0);
+      textFont(font);
+      textSize(120);
+      textAlign(CENTER, CENTER);
+      text(cell_count, int(c_width/2), int(c_height/2)-10);
+
+      popMatrix();
+
+      cell_count++;
     }
   }
 }
 
-void dispStone(Stone s)
+color getColor(int status)
 {
-  // マス目の始点（左上）から石の位置*マス目の幅の分だけ右に動かして描画する
-  int draw_x = (int)(width / 2) + (c_width * -4) + s.x * c_width + (int)(c_width / 2);
-  // マス目の始点（左上）から石の位置*マス目の高さの分だけ下に動かして描画する
-  int draw_y = (int)(height / 2) + (c_height * -4) + s.y * c_height + (int)(c_height / 2);
-
-  int draw_z = 0;
-
-  color stone_color = (s.status == MY_STATUS) ? color(255, s.alpha) : color(0, s.alpha);
-  fill(stone_color);
-  strokeWeight(s_stroke);
-  //stroke(0);
-  
-  pushMatrix();
-  translate(draw_x, draw_y, draw_z);
-  ellipse(0, 0, s_diam, s_diam);
-  popMatrix();
-
+  if (status == MY_STATUS) {
+    return color(204, 204, 204);
+  } else if (status == ENEMY_STATUS1) {
+    return color(51, 153, 51);
+  } else if (status == ENEMY_STATUS2) {
+    return color(102, 102, 204);
+  } else if (status == ENEMY_STATUS3) {
+    return color(204, 102, 102);
+  } else {
+    return color(102, 102, 102);
+  }
 }
 
-void animatedStones()
+void animatedCells()
 {
-  // 石をひっくり返すときの演出
+  // マスをひっくり返すときの演出
 
-  // ひっくり返す石がなくなったらスキップ
+  // ひっくり返すマスがなくなったらスキップ
   if (targets.isEmpty() == true) {
     isFlipped = false;
     isFinished = true;
@@ -168,16 +166,10 @@ void animatedStones()
     return;
   }
 
-  // 一定期間ごとに石をひっくり返す演出を入れる
-  if (count == 4) {
+  // 一定期間ごとにマスをひっくり返す演出を入れる
+  if (count == 5) {
     int[] tmp = (int[])targets.get(0);
-    //printArray(tmp);
-    for (Stone s : stones) {
-      if (tmp[0] == s.x && tmp[1] == s.y) {
-        s.status = MY_STATUS;
-        break;
-      }
-    }
+    cells[tmp[1]][tmp[0]] = MY_STATUS;
     se.play(0);
 
     targets.remove(0);
@@ -206,7 +198,7 @@ ArrayList searchOneDirection(int x, int y, int x_direction, int y_direction)
   ArrayList<int[]> result = new ArrayList<int[]>();
   int next_x = x + x_direction;
   int next_y = y + y_direction;
-  boolean result_tmp = enableStoneFlipped(next_x, next_y);
+  boolean result_tmp = enableCellFlipped(next_x, next_y);
   while (result_tmp == true) {
     int[] tmp = {next_x, next_y};
     result.add(tmp);
@@ -215,32 +207,30 @@ ArrayList searchOneDirection(int x, int y, int x_direction, int y_direction)
 
     next_x += x_direction;
     next_y += y_direction;
-    result_tmp = enableStoneFlipped(next_x, next_y);
+    result_tmp = enableCellFlipped(next_x, next_y);
   }
   return result;
 }
 
-boolean enableStoneFlipped(int x, int y)
+boolean enableCellFlipped(int x, int y)
 {
-  if (x < 0 || x >= 8 || y < 0 || y >= 8) {
+  if (x < 0 || x >= 5 || y < 0 || y >= 5) {
     return false;
   }
   //println("x : " + x + " y : " + y);
 
-  return (cells[y][x] == ENEMY_STATUS) ? true : false; // 指定する座標が敵の石であればひっくり返せるのでtrueを返す
+  return (cells[y][x] < 0) ? true : false; // 指定する座標が敵のであればひっくり返せるのでtrueを返す
 }
 
-/*
 void mouseReleased()
 {
   se.play(0);
 
-  stones.add(new Stone(solve_x, solve_y, MY_STATUS));
+  cells[solve_y][solve_x] = MY_STATUS;
   targets = search(solve_x, solve_y);
 
   isFlipped = true;
 }
-*/
 
 void keyTyped()
 {
@@ -253,17 +243,13 @@ void keyTyped()
     }
     se.play(0);
 
-    stones.add(new Stone(solve_x, solve_y, MY_STATUS, 255));
-    /*
-    for (Stone s : stones) {
-      if (solve_x == s.x && solve_y == s.y) {
-        s.alpha = 255;
-        break;
-      }
-    }
-    */
+    cells[solve_y][solve_x] = MY_STATUS;
     targets = search(solve_x, solve_y);
 
     isFlipped = true;
+  } else if(key == 'm') {
+    current_board = (current_board == MAX_BOARD_NUM) ? 1 : current_board + 1; // インクリメント、最大に達したら1から
+    load(current_board);
+    init();
   }
 }
