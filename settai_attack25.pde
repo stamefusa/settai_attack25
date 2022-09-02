@@ -1,7 +1,7 @@
 import ddf.minim.*;
 
 Minim minim;
-AudioPlayer se;
+AudioPlayer se, voice, end;
 
 int c_width = 0, c_height = 0; // セルの幅と高さ
 int c_stroke = 10; // セルの線の太さ
@@ -11,7 +11,7 @@ final int ENEMY_STATUS1 = -1; // 相手のマスを表すステータス
 final int ENEMY_STATUS2 = -2;
 final int ENEMY_STATUS3 = -3;
 
-final int MAX_BOARD_NUM = 1; // 盤面バリエーションの最大数
+final int MAX_BOARD_NUM = 2; // 盤面バリエーションの最大数
 
 String[] fontList;//String型のArrayListを用意
 PFont font;
@@ -27,6 +27,7 @@ int count = 0;
 
 // 次の盤面に遷移するときの制御用変数
 boolean isFinished = false;
+boolean isPlayedFinishVoice = false;
 int finished_time = 0;
 int current_board = 1;
 
@@ -36,6 +37,8 @@ void setup()
 
   minim = new Minim(this);
   se = minim.loadFile("se.wav");
+  voice = minim.loadFile("voice.wav");
+  end = minim.loadFile("end.wav");
   delay(500);
   se.play();
   
@@ -56,17 +59,29 @@ void draw()
     animatedCells();
   }
 
-  /*
   if (isFinished == true) {
-    // 3秒経ったら次の盤面へ
-    if (millis() - finished_time > 3000) {
+    // 以下は自動で次の盤面へ進むとき
+    /*
+    // 1秒経ったらボイスを流す
+    if (millis() - finished_time > 1000 && isPlayedFinishVoice == false) {
+      isPlayedFinishVoice = true;
+      end.play(0);
+    }
+    // 5秒経ったら次の盤面へ
+    if (millis() - finished_time > 10000 && isPlayedFinishVoice == true) {
       isFinished = false;
+      isPlayedFinishVoice = false;
       current_board = (current_board == MAX_BOARD_NUM) ? 1 : current_board + 1; // インクリメント、最大に達したら1から
       load(current_board);
       init();
+    }*/
+    // 以下は手動で次の盤面へ進むとき
+    // 1秒経ったらボイスを流す
+    if (millis() - finished_time > 1000) {
+      isFinished = false;
+      end.play(0);
     }
   }
-  */
 
   dispBoard();
 
@@ -198,8 +213,9 @@ ArrayList searchOneDirection(int x, int y, int x_direction, int y_direction)
   ArrayList<int[]> result = new ArrayList<int[]>();
   int next_x = x + x_direction;
   int next_y = y + y_direction;
-  boolean result_tmp = enableCellFlipped(next_x, next_y);
-  while (result_tmp == true) {
+  int result_tmp = enableCellFlipped(next_x, next_y);
+  boolean existMyCell = false;
+  while (result_tmp == 1) {
     int[] tmp = {next_x, next_y};
     result.add(tmp);
     //print("searched.");
@@ -208,18 +224,26 @@ ArrayList searchOneDirection(int x, int y, int x_direction, int y_direction)
     next_x += x_direction;
     next_y += y_direction;
     result_tmp = enableCellFlipped(next_x, next_y);
+    if (result_tmp == 0) {
+      // 探索していって自分のマスがあったとき
+      existMyCell = true;
+    }
+  }
+  // 経路上に自分のマスが1つもなければ返せないため空を返す
+  if (existMyCell == false) {
+    result.clear();
   }
   return result;
 }
 
-boolean enableCellFlipped(int x, int y)
+int enableCellFlipped(int x, int y)
 {
-  if (x < 0 || x >= 5 || y < 0 || y >= 5) {
-    return false;
-  }
   //println("x : " + x + " y : " + y);
+  if (x < 0 || x >= 5 || y < 0 || y >= 5) {
+    return -1;
+  }
 
-  return (cells[y][x] < 0) ? true : false; // 指定する座標が敵のであればひっくり返せるのでtrueを返す
+  return (cells[y][x] < 0) ? 1 : 0; // 指定する座標が敵のであればひっくり返せるのでtrueを返す
 }
 
 void mouseReleased()
@@ -247,9 +271,11 @@ void keyTyped()
     targets = search(solve_x, solve_y);
 
     isFlipped = true;
-  } else if(key == 'm') {
+  } else if (key == 'n') {
     current_board = (current_board == MAX_BOARD_NUM) ? 1 : current_board + 1; // インクリメント、最大に達したら1から
     load(current_board);
     init();
+  } else if (key == 'v') {
+    voice.play(0);
   }
 }
