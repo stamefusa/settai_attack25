@@ -1,5 +1,3 @@
 ### 概要
-一気にひっくり返せる局面ばかり次々に出てくるリバーシ。
-実際のコマをコントローラにすることが出来る。
-
-Pro Micro（Arduino Leonardo）を使う必要あり。
+https://github.com/stamefusa/settai_reversi
+を改造した、アタック25の最後の1マスを埋めて大逆転するところだけ体験出来るプログラム。
